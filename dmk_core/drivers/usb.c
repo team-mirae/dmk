@@ -24,6 +24,9 @@
 static USB_HID_KeyboardReport_TypeDef current_report;
 static uint8_t s_real_mods = 0;
 static uint8_t s_weak_mods = 0;
+
+/* The modifier byte of the current keyboard report (HHKB bada-tide key events). */
+uint8_t usb_current_mods(void) { return current_report.Modifier; }
 #ifdef HHKB_GRAVE_ESCAPE
 static uint8_t s_suppressed_mods;
 #endif

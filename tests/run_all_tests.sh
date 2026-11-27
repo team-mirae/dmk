@@ -28,6 +28,11 @@ clang -std=c11 -Wall -Wextra -Werror -O2 -I "${SCRIPT_DIR}/dmk_core/include" \
     "${SCRIPT_DIR}/tests/test_flash_journal.c" -o /tmp/dmk-flash-journal-test
 /tmp/dmk-flash-journal-test
 
+clang -std=c11 -Wall -Wextra -Werror -O2 -I "${SCRIPT_DIR}/tests/hhkb_tide" \
+    -I "${SCRIPT_DIR}/keyboards/hhkb/modules/pfu_channel" \
+    "${SCRIPT_DIR}/tests/hhkb_tide/test_hhkb_tide.c" "${SCRIPT_DIR}/keyboards/hhkb/modules/pfu_channel/hhkb_tide.c" \
+    -o /tmp/dmk-hhkb-tide-test
+/tmp/dmk-hhkb-tide-test
 # Runtime integration tests can also run independently, with sanitizers.
 bash "${SCRIPT_DIR}/tests/run_runtime_tests.sh"
 

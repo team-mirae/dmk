@@ -21,4 +21,7 @@ set_property(SOURCE "${DMK_ROOT}/dmk_core/features/vial.c"
     APPEND PROPERTY COMPILE_OPTIONS -Oz)
 target_link_options(${TARGET_NAME} PRIVATE -flto)
 
-target_compile_definitions(${TARGET_NAME} PRIVATE HHKB_USB_REPORT_DIAGNOSTICS=1)
+# USB report diagnostics, as the scan diagnostics: left out of a bada-tide build (HHKB_TIDE=1) to fit Bank 2.
+if(NOT "${DEFINE}" MATCHES "HHKB_TIDE=1")
+    target_compile_definitions(${TARGET_NAME} PRIVATE HHKB_USB_REPORT_DIAGNOSTICS=1)
+endif()

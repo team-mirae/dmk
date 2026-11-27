@@ -102,6 +102,13 @@ static void usb_keyboard_flush(void) {
     }
     if (!s_keyboard_queue || !tud_mounted() || tud_suspended() || !tud_hid_ready() ||
         xQueuePeek(s_keyboard_queue, &report, 0) != pdTRUE) return;
+#if defined(HHKB_HYBRID) && HHKB_PFU_CHANNEL && HHKB_TIDE
+    if (report.report_id == 1) { /* language keys a bada-tide harness takes reach it only as events */
+        extern bool pfu_channel_key_taken(uint8_t usage);
+        for (int i = 0; i < 6; i++)
+            if (report.keyboard.Keycodes[i] && pfu_channel_key_taken(report.keyboard.Keycodes[i])) report.keyboard.Keycodes[i] = 0;
+    }
+#endif
     bool sent = report.report_id == 1
         ? tud_hid_keyboard_report(1, report.keyboard.Modifier, report.keyboard.Keycodes)
         : tud_hid_report(2, &report.consumer, sizeof(report.consumer));
@@ -247,6 +254,10 @@ static void usb_device_task(void *param) {
         while (tud_midi_available()) {
             tud_midi_rx_cb(0);
         }
+#endif
+#if defined(HHKB_HYBRID) && HHKB_PFU_CHANNEL
+        extern void pfu_channel_task(void);
+        pfu_channel_task();
 #endif
 #ifdef VIAL
         extern void vial_flush_pending_report(void);
