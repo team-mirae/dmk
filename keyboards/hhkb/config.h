@@ -64,7 +64,16 @@
 #if defined(HHKB_HYBRID) && !defined(HHKB_PFU_CHANNEL)
 #define HHKB_PFU_CHANNEL 1
 #endif
-#ifndef HHKB_SCAN_DIAGNOSTICS
+/*
+ * HHKB_TIDE (Hybrid with HHKB_PFU_CHANNEL, default 0): bada-tide's keyboard side on that channel, command
+ * 0xF1 (team-mirae/bada docs/bada-tide-v1.md): a harness's RAM-only lease, language-key events and take.
+ * The contract and its translator are the same as ikarosu's, but for DMK's VID/PID. A tide build leaves
+ * out the scan diagnostics (HHKB_SCAN_DIAGNOSTICS) to fit Bank 2.
+ */
+#ifndef HHKB_TIDE
+#define HHKB_TIDE 0
+#endif
+#if !defined(HHKB_SCAN_DIAGNOSTICS) && !HHKB_TIDE
 #define HHKB_SCAN_DIAGNOSTICS 1
 #endif
 

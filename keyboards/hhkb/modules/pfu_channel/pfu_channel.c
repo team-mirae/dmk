@@ -7,6 +7,8 @@
  *                                  factory wrote them), DMK's own version, boot version, running state 0
  *   0xE0 FirmupModeChange          acknowledged, then the stock handoff: Bank 1's updater starts and
  *                                  takes the update (E1-E3) itself
+ *   0xF1 bada-tide                 with HHKB_TIDE: a harness's lease, key events and take (hhkb_tide.c);
+ *                                  any other command ends a lease at once (the backstop)
  * Every other command is refused (status 1); an unknown one is answered 55 55 99 01, as stock does.
  * Nothing here writes the keymap or settings; the handoff writes the three EEPROM words stock writes.
  */
@@ -17,6 +19,8 @@
 #include <string.h>
 
 #include "FreeRTOS.h"
+#include "hooks.h"
+#include "hhkb_tide.h"
 #include "pfu_channel.h"
 #include "stm32l0xx.h"
 #include "task.h"
@@ -81,10 +85,39 @@ static void copy_field(uint8_t *dst, uint32_t addr, uint8_t n) {
     for (uint8_t i = 0; i < n && src[i] >= 0x20 && src[i] < 0x7F; i++) dst[i] = src[i];
 }
 
+#if HHKB_TIDE
+static uint32_t tide_now(void) { return (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS); }
+
+/* Every key the keyboard sends (after the keymap, hold-tap and combos): language keys become tide events
+ * while a lease holds. The key itself is sent as usual (or left out of the USB report if taken). */
+static void tide_key_sent(uint16_t key, bool pressed) {
+    extern uint8_t usb_current_mods(void);
+    taskENTER_CRITICAL();
+    hhkb_tide_key(key, pressed, usb_current_mods(), tide_now());
+    taskEXIT_CRITICAL();
+}
+DMK_HOOK_SUBSCRIBER(hhkb_tide_hooks, .key_sent = tide_key_sent);
+
+/* Whether a harness takes this HID usage now: the USB keyboard report leaves it out. */
+bool pfu_channel_key_taken(uint8_t usage) { return hhkb_tide_taken(usage, tide_now()); }
+#endif
+
 void pfu_channel_request(uint8_t itf, const uint8_t *buf, uint16_t len) {
     s_itf = itf;
     if (s_tx_pending || s_handoff || len < 5 || buf[0] != 0xAA || buf[1] != 0xAA) return;
     const uint8_t cmd = buf[2];
+#if HHKB_TIDE
+    int tide;
+    taskENTER_CRITICAL();
+    tide = hhkb_tide_handle(buf, s_tx, tide_now());
+    if (!tide) hhkb_tide_other_command(tide_now()); /* backstop: someone else uses the channel */
+    taskEXIT_CRITICAL();
+    if (tide) {
+        s_tx_pending = 1;
+        pfu_channel_task();
+        return;
+    }
+#endif
     switch (cmd) {
     case 0x01:
         reply(cmd, 0, 0);
@@ -122,6 +155,17 @@ void pfu_channel_request(uint8_t itf, const uint8_t *buf, uint16_t len) {
 void pfu_channel_task(void) {
     if (s_tx_pending && tud_mounted() && tud_hid_n_ready(s_itf) && tud_hid_n_report(s_itf, 0, s_tx, 64))
         s_tx_pending = 0;
+#if HHKB_TIDE
+    /* A key event when nothing else waits: it never splits a reply. */
+    if (!s_tx_pending && !s_handoff && s_itf && tud_mounted() && tud_hid_n_ready(s_itf)) {
+        uint8_t ev[64];
+        int got;
+        taskENTER_CRITICAL();
+        got = hhkb_tide_next_event(ev, tide_now());
+        taskEXIT_CRITICAL();
+        if (got) tud_hid_n_report(s_itf, 0, ev, 64);
+    }
+#endif
     if (s_handoff && !s_tx_pending && (int32_t)(xTaskGetTickCount() - s_handoff_at) >= 0) enter_stock_updater();
 }
 

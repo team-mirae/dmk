@@ -20,4 +20,8 @@ void pfu_channel_request(uint8_t itf, const uint8_t *buf, uint16_t len);
 /* Sends what is waiting and runs a pending handoff (USB task, often). */
 void pfu_channel_task(void);
 
+/* HHKB_TIDE: whether a bada-tide harness takes this HID usage now (the USB report leaves it out). */
+#include <stdbool.h>
+bool pfu_channel_key_taken(uint8_t usage);
+
 #endif
